@@ -1,0 +1,12 @@
+name: iOS Source Check
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Swift package for iOS Simulator
+        run: |
+          xcodebuild -scheme StudioCore -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build
