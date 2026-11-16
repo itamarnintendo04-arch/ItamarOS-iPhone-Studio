@@ -1,0 +1,30 @@
+name: Build iOS IPA (unsigned)
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'iOSApp/**'
+      - 'project.yml'
+      - '.github/workflows/build-ios.yml'
+jobs:
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Build for iPhone (unsigned)
+        run: |
+          xcodebuild -project ItamarOSiPhoneStudio.xcodeproj -scheme ItamarOSiPhoneStudio -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/ItamarOSiPhoneStudio.app Payload/
+          zip -qry ItamarOS-iPhone-Studio-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ItamarOS-iPhone-Studio-unsigned-IPA
+          path: ItamarOS-iPhone-Studio-unsigned.ipa
+          retention-days: 30
