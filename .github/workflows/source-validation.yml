@@ -1,0 +1,16 @@
+name: Validate Source
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify localization files
+        run: |
+          plutil -lint iOSApp/en.lproj/Localizable.strings iOSApp/he.lproj/Localizable.strings
+      - name: Check Swift syntax
+        run: |
+          swiftc -frontend -parse iOSApp/ContentView.swift iOSApp/ItamarOSiPhoneStudioApp.swift
