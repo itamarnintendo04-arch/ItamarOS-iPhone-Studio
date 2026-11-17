@@ -15,12 +15,13 @@ targets:
       - path: iOSApp
         excludes:
           - Localization
+      - path: Assets.xcassets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.itamaros.iphonestudio
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: iPhone Studio
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Select an icon image for your custom Home Screen shortcut.
         CODE_SIGN_STYLE: Automatic
-    dependencies: []
