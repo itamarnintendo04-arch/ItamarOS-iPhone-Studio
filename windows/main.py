@@ -86,7 +86,7 @@ class Studio(ctk.CTk):
         self.heading("Device Dashboard","Manage your iPhone with a clean, secure workspace.")
         device=self.card(self.main)
         self.label(device,"◉  DEVICE CONNECTION",12,BLUE,True).pack(anchor="w",padx=23,pady=(20,8))
-        self.label(device,"iPhone not detected yet",23,WHITE,True).pack(anchor="w",padx=23)
+        self.device_title=self.label(device,"iPhone not detected yet",23,WHITE,True)\n        self.device_title.pack(anchor="w",padx=23)
         self.label(device,"Connect via USB and tap Trust on your iPhone.",13,MUTED).pack(anchor="w",padx=23,pady=(5,17))
         self.action(device,"Detect iPhone",self.detect).pack(anchor="w",padx=23,pady=(0,20))
         card=self.card(self.main)
@@ -96,7 +96,7 @@ class Studio(ctk.CTk):
         for title,command in [("USB Drivers",self.service),("Inspect IPSW",self.ipsw),("Install Signed IPA",self.install_ipa),("Backup Settings",lambda:self.show("Backup Settings"))]:
             ctk.CTkButton(row,text=title,command=command,fg_color=PANEL2,hover_color="#2C4164",corner_radius=12,height=54).pack(side="left",expand=True,fill="x",padx=4)
         self.log_panel()
-        self.log("Ready. Device tools require compatible Apple drivers and optional libimobiledevice.")
+        self.log("Ready. Windows USB detection is available without ideviceinfo; detailed device data is optional.")
 
     def log_panel(self):
         card=self.card(self.main)
@@ -139,15 +139,53 @@ class Studio(ctk.CTk):
         self.label(card,"A device-management prototype. No jailbreak, IPA signing, firmware restore or backup execution is available yet.",13,MUTED).pack(anchor="w",padx=22,pady=(0,20))
 
     def detect(self):
+        self.log("Checking connected Apple devices...")
         def work():
-            exe=shutil.which("ideviceinfo")
-            if not exe:
-                result="Install libimobiledevice (ideviceinfo) for device detection. Apple drivers alone do not provide this CLI."
+            # PowerShell can enumerate Plug and Play devices using Windows' own
+            # device registry, without requiring the libimobiledevice CLI.
+            ps = (
+                "$devices = @(Get-PnpDevice -PresentOnly -ErrorAction Stop | "
+                "Where-Object { $_.InstanceId -match 'VID_05AC' -and "
+                "($_.FriendlyName -match 'iPhone|iPad|Apple Mobile Device' -or "
+                "$_.Class -match 'WPD|USB|PortableDevices') }); "
+                "$devices | Select-Object -First 8 FriendlyName,Status,Class | ConvertTo-Json -Compress"
+            )
+            response = run_tool("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps)
+            devices = []
+            error = ""
+            if hasattr(response, "returncode") and response.returncode == 0:
+                try:
+                    parsed = json.loads(response.stdout) if response.stdout.strip() else []
+                    devices = parsed if isinstance(parsed, list) else [parsed]
+                except ValueError:
+                    error = "Windows returned an unreadable device list."
             else:
-                out=run_tool(exe,"-k","ProductType")
-                result=(out.stdout.strip() if hasattr(out,"stdout") else str(out)) or "Device not detected. Check USB and Trust prompt."
-            self.after(0,lambda:self.log(result))
-        threading.Thread(target=work,daemon=True).start()
+                error = (response.stderr.strip() if hasattr(response, "stderr") else str(response))[:400]
+            exe = shutil.which("ideviceinfo")
+            detail = ""
+            if exe:
+                result = run_tool(exe, "-k", "ProductType")
+                if hasattr(result, "returncode") and result.returncode == 0:
+                    detail = result.stdout.strip()
+            def update():
+                if devices:
+                    names = [str(d.get("FriendlyName") or "Apple USB Device") for d in devices]
+                    self.device_title.configure(text=names[0])
+                    self.log("Windows detected Apple USB hardware: " + ", ".join(names))
+                    if detail:
+                        self.log("Device model identifier: " + detail)
+                    else:
+                        self.log("USB detected; detailed model/iOS information requires a paired device API or ideviceinfo.")
+                elif detail:
+                    self.device_title.configure(text=detail)
+                    self.log("Device model identifier: " + detail)
+                else:
+                    self.device_title.configure(text="iPhone not detected yet")
+                    self.log("No Apple USB device found by Windows PnP. Check cable, Trust prompt and Apple Mobile Device driver.")
+                    if error:
+                        self.log("Windows device query: " + error)
+            self.after(0, update)
+        threading.Thread(target=work, daemon=True).start()
 
     def service(self):
         def work():
