@@ -76,7 +76,10 @@ struct TendiesLibraryView: View {
             }
         }
         .sheet(isPresented: $browsing) {
-            WallpaperBrowser(url: gallery) { fileURL in\n                do { try store(fileURL); refresh(); message = "Wallpaper imported." }\n                catch { message = error.localizedDescription }\n            }.ignoresSafeArea()
+            WallpaperBrowser(url: gallery) { fileURL in
+                do { try store(fileURL); refresh(); message = "Wallpaper imported." }
+                catch { message = error.localizedDescription }
+            }.ignoresSafeArea()
         }
         .alert("Tendies Library", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK") { message = nil }
