@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'iOSApp/**'
+      - 'Assets.xcassets/**'
+      - 'scripts/**'
       - 'project.yml'
       - '.github/workflows/build-ios.yml'
 jobs:
@@ -11,11 +13,15 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install build dependencies
+        run: |
+          brew install xcodegen
+          python3 -m pip install --user --break-system-packages pillow
+      - name: Generate icon
+        run: python3 scripts/make_icon.py
       - name: Generate Xcode project
         run: xcodegen generate
-      - name: Build for iPhone (unsigned)
+      - name: Build unsigned iPhone app
         run: |
           xcodebuild -project ItamarOSiPhoneStudio.xcodeproj -scheme ItamarOSiPhoneStudio -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
       - name: Package unsigned IPA
