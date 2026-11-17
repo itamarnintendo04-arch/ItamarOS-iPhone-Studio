@@ -1,4 +1,4 @@
-"""ItamarOS iPhone Studio for Windows — safe device manager prototype."""
+"""ItamarOS iPhone Studio — modern Windows desktop UI."""
 import json
 import os
 import shutil
@@ -9,89 +9,168 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
-APP_DIR = Path(os.getenv("APPDATA", str(Path.home()))) / "ItamarOS" / "iPhoneStudio"
-CONFIG = APP_DIR / "settings.json"
-DEFAULT_BACKUP = str(Path.home() / "Documents" / "ItamarOS iPhone Studio" / "Backups")
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+BG="#090E1B"
+PANEL="#121B2D"
+PANEL2="#1A2740"
+BLUE="#4C8DFF"
+MUTED="#9BAAC5"
+WHITE="#F3F7FF"
+CONFIG=Path(os.getenv("APPDATA",str(Path.home()))) / "ItamarOS" / "iPhoneStudio" / "settings.json"
+DEFAULT_BACKUP=str(Path.home()/"Documents"/"ItamarOS iPhone Studio"/"Backups")
 
 def load_settings():
     try:
         return json.loads(CONFIG.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {"backup_enabled": True, "backup_path": DEFAULT_BACKUP}
-
-def save_settings(data):
-    APP_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except (OSError,ValueError):
+        return {"backup_enabled":True,"backup_path":DEFAULT_BACKUP}
 
 def run_tool(*args):
     try:
-        return subprocess.run(args, capture_output=True, text=True, timeout=15, check=False)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        return subprocess.run(args,capture_output=True,text=True,timeout=15,check=False)
+    except (OSError,subprocess.TimeoutExpired) as exc:
         return str(exc)
 
 class Studio(ctk.CTk):
     def __init__(self):
-        super().__init__()
-        self.title("ItamarOS iPhone Studio — Windows")
-        self.geometry("760x610")
-        ctk.set_appearance_mode("dark")
-        self.settings = load_settings()
-        self.heading = ctk.CTkLabel(self, text="ItamarOS iPhone Studio", font=ctk.CTkFont(size=26, weight="bold"))
-        self.heading.pack(pady=(22, 10))
-        self.status = ctk.CTkTextbox(self, height=145)
-        self.status.pack(fill="x", padx=24, pady=10)
-        ctk.CTkButton(self, text="Detect iPhone (USB)", command=self.detect).pack(pady=5)
-        ctk.CTkButton(self, text="Check Apple Mobile Device Service", command=self.service).pack(pady=5)
-        ctk.CTkButton(self, text="Select IPSW (inspect only)", command=self.ipsw).pack(pady=5)
-        ctk.CTkLabel(self, text="Local Backup Settings", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(18, 4))
-        self.backup_var = tk.BooleanVar(value=self.settings.get("backup_enabled", True))
-        ctk.CTkCheckBox(self, text="Enable local backup", variable=self.backup_var, command=self.persist).pack(pady=6)
-        self.path_var = tk.StringVar(value=self.settings.get("backup_path", DEFAULT_BACKUP))
-        ctk.CTkEntry(self, textvariable=self.path_var, width=590).pack(pady=5)
-        ctk.CTkButton(self, text="Choose Backup Folder", command=self.choose_folder).pack(pady=5)
-        ctk.CTkButton(self, text="Save Settings", command=self.persist).pack(pady=5)
-        ctk.CTkLabel(self, text="Before system changes: Settings → Apple Account → iCloud → iCloud Backup → Back Up Now", wraplength=690).pack(pady=12)
-        self.log("Connect an unlocked iPhone by USB and tap Trust on the device.\n")
-        self.log("This version does not jailbreak, restore firmware, install IPA or create device backups.\n")
+        super().__init__(fg_color=BG)
+        self.title("ItamarOS iPhone Studio")
+        self.geometry("1060x700")
+        self.minsize(860,590)
+        self.settings=load_settings()
+        self.sidebar=ctk.CTkFrame(self,width=224,corner_radius=0,fg_color="#0E1626")
+        self.sidebar.pack(side="left",fill="y")
+        self.sidebar.pack_propagate(False)
+        ctk.CTkLabel(self.sidebar,text="◈  ItamarOS",font=ctk.CTkFont(size=23,weight="bold"),text_color=WHITE).pack(anchor="w",padx=23,pady=(34,5))
+        ctk.CTkLabel(self.sidebar,text="iPHONE STUDIO",font=ctk.CTkFont(size=11,weight="bold"),text_color=BLUE).pack(anchor="w",padx=25,pady=(0,35))
+        self.nav={}
+        for title in ["Dashboard","Device Tools","Backup Settings","About"]:
+            btn=ctk.CTkButton(self.sidebar,text="   "+title,anchor="w",height=45,corner_radius=12,fg_color="transparent",hover_color=PANEL2,text_color=MUTED,command=lambda t=title:self.show(t))
+            btn.pack(fill="x",padx=13,pady=4)
+            self.nav[title]=btn
+        ctk.CTkLabel(self.sidebar,text="●  Local desktop mode",text_color="#67D9B0",font=ctk.CTkFont(size=12)).pack(side="bottom",pady=26)
+        self.main=ctk.CTkScrollableFrame(self,fg_color=BG,corner_radius=0)
+        self.main.pack(side="right",fill="both",expand=True)
+        self.show("Dashboard")
 
-    def log(self, msg):
-        self.status.insert("end", msg + "\n")
-        self.status.see("end")
+    def clear(self):
+        for child in self.main.winfo_children():
+            child.destroy()
+
+    def label(self,parent,text,size=14,color=WHITE,bold=False):
+        return ctk.CTkLabel(parent,text=text,font=ctk.CTkFont(size=size,weight="bold" if bold else "normal"),text_color=color,anchor="w",justify="left")
+
+    def card(self,parent):
+        frame=ctk.CTkFrame(parent,fg_color=PANEL,corner_radius=19,border_width=1,border_color="#25334C")
+        frame.pack(fill="x",pady=9)
+        return frame
+
+    def heading(self,title,subtitle):
+        self.label(self.main,title,30,WHITE,True).pack(fill="x",padx=27,pady=(30,3))
+        self.label(self.main,subtitle,13,MUTED).pack(fill="x",padx=28,pady=(0,17))
+
+    def show(self,page):
+        self.clear()
+        for name,button in self.nav.items():
+            button.configure(fg_color=PANEL2 if name==page else "transparent",text_color=WHITE if name==page else MUTED)
+        if page=="Dashboard":self.dashboard()
+        elif page=="Device Tools":self.device_tools()
+        elif page=="Backup Settings":self.backup_settings()
+        else:self.about()
+
+    def action(self,parent,title,command):
+        return ctk.CTkButton(parent,text=title,command=command,height=40,corner_radius=11,fg_color=BLUE,hover_color="#3674D9")
+
+    def dashboard(self):
+        self.heading("Device Dashboard","Manage your iPhone with a clean, secure workspace.")
+        device=self.card(self.main)
+        self.label(device,"◉  DEVICE CONNECTION",12,BLUE,True).pack(anchor="w",padx=23,pady=(20,8))
+        self.label(device,"iPhone not detected yet",23,WHITE,True).pack(anchor="w",padx=23)
+        self.label(device,"Connect via USB and tap Trust on your iPhone.",13,MUTED).pack(anchor="w",padx=23,pady=(5,17))
+        self.action(device,"Detect iPhone",self.detect).pack(anchor="w",padx=23,pady=(0,20))
+        card=self.card(self.main)
+        self.label(card,"Quick Actions",20,WHITE,True).pack(anchor="w",padx=22,pady=(18,10))
+        row=ctk.CTkFrame(card,fg_color="transparent")
+        row.pack(fill="x",padx=20,pady=(0,20))
+        for title,command in [("USB Drivers",self.service),("Inspect IPSW",self.ipsw),("Backup Settings",lambda:self.show("Backup Settings"))]:
+            ctk.CTkButton(row,text=title,command=command,fg_color=PANEL2,hover_color="#2C4164",corner_radius=12,height=54).pack(side="left",expand=True,fill="x",padx=4)
+        self.log_panel()
+        self.log("Ready. Device tools require compatible Apple drivers and optional libimobiledevice.")
+
+    def log_panel(self):
+        card=self.card(self.main)
+        self.label(card,"Activity Log",17,WHITE,True).pack(anchor="w",padx=20,pady=(15,7))
+        self.logbox=ctk.CTkTextbox(card,height=125,fg_color="#0B1220",text_color="#C8D8F4",corner_radius=12)
+        self.logbox.pack(fill="x",padx=20,pady=(0,19))
+
+    def log(self,message):
+        if hasattr(self,"logbox") and self.logbox.winfo_exists():
+            self.logbox.insert("end",message+"\n")
+            self.logbox.see("end")
+
+    def device_tools(self):
+        self.heading("Device Tools","Check drivers and inspect firmware safely.")
+        card=self.card(self.main)
+        for text,cmd in [("Detect connected iPhone",self.detect),("Check Apple Mobile Device Service",self.service),("Choose IPSW file (inspection only)",self.ipsw)]:
+            self.action(card,text,cmd).pack(fill="x",padx=20,pady=9)
+        self.label(card,"Firmware restore, jailbreak and IPA installation are not implemented.",12,MUTED).pack(padx=20,pady=(9,20))
+        self.log_panel()
+
+    def backup_settings(self):
+        self.heading("Backup Settings","Choose where future local backups should be stored.")
+        card=self.card(self.main)
+        self.backup_var=tk.BooleanVar(value=self.settings.get("backup_enabled",True))
+        ctk.CTkSwitch(card,text="Enable local backups",variable=self.backup_var,progress_color=BLUE).pack(anchor="w",padx=22,pady=(24,16))
+        self.label(card,"Backup folder",13,MUTED).pack(anchor="w",padx=22)
+        self.path_var=tk.StringVar(value=self.settings.get("backup_path",DEFAULT_BACKUP))
+        ctk.CTkEntry(card,textvariable=self.path_var,height=42,corner_radius=11).pack(fill="x",padx=22,pady=9)
+        self.action(card,"Browse folder",self.choose_folder).pack(anchor="w",padx=22,pady=6)
+        self.action(card,"Save preferences",self.persist).pack(anchor="w",padx=22,pady=(9,15))
+        self.label(card,"These preferences are saved, but backup execution is not implemented yet.",12,MUTED).pack(anchor="w",padx=22,pady=(0,22))
+        info=self.card(self.main)
+        self.label(info,"☁  iCloud Backup Recommended",18,WHITE,True).pack(anchor="w",padx=22,pady=(18,5))
+        self.label(info,"Settings → Apple Account → iCloud → iCloud Backup → Back Up Now",13,MUTED).pack(anchor="w",padx=22,pady=(0,18))
+
+    def about(self):
+        self.heading("About","ItamarOS iPhone Studio • Windows prototype")
+        card=self.card(self.main)
+        self.label(card,"Version 0.2 • Premium UI",20,WHITE,True).pack(anchor="w",padx=22,pady=(20,8))
+        self.label(card,"A device-management prototype. No jailbreak, IPA signing, firmware restore or backup execution is available yet.",13,MUTED).pack(anchor="w",padx=22,pady=(0,20))
 
     def detect(self):
         def work():
-            exe = shutil.which("ideviceinfo")
+            exe=shutil.which("ideviceinfo")
             if not exe:
-                self.after(0, lambda: self.log("Device detection requires libimobiledevice's ideviceinfo in PATH. Apple drivers alone are not a device-info CLI."))
-                return
-            result = run_tool(exe, "-k", "ProductType")
-            output = result.stdout.strip() if hasattr(result, "stdout") else str(result)
-            self.after(0, lambda: self.log("Device: " + (output or "Not detected. Check USB cable, trust prompt and drivers.")))
-        threading.Thread(target=work, daemon=True).start()
+                result="Install libimobiledevice (ideviceinfo) for device detection. Apple drivers alone do not provide this CLI."
+            else:
+                out=run_tool(exe,"-k","ProductType")
+                result=(out.stdout.strip() if hasattr(out,"stdout") else str(out)) or "Device not detected. Check USB and Trust prompt."
+            self.after(0,lambda:self.log(result))
+        threading.Thread(target=work,daemon=True).start()
 
     def service(self):
         def work():
-            result = run_tool("sc", "query", "Apple Mobile Device Service")
-            output = result.stdout if hasattr(result, "stdout") else str(result)
-            self.after(0, lambda: self.log(output.strip()[:1300] or "Service not found; check Apple Devices/iTunes installation."))
-        threading.Thread(target=work, daemon=True).start()
+            out=run_tool("sc","query","Apple Mobile Device Service")
+            result=(out.stdout.strip() if hasattr(out,"stdout") else str(out)) or "Apple Mobile Device Service not found."
+            self.after(0,lambda:self.log(result[:1400]))
+        threading.Thread(target=work,daemon=True).start()
 
     def ipsw(self):
-        path = filedialog.askopenfilename(filetypes=[("iOS Firmware", "*.ipsw")])
+        path=filedialog.askopenfilename(filetypes=[("iOS Firmware","*.ipsw")])
         if path:
-            self.log(f"Selected IPSW: {Path(path).name} ({Path(path).stat().st_size // (1024*1024)} MB)")
-            messagebox.showinfo("Inspection only", "An IPSW filename does not prove Apple is signing it. No restore or downgrade will be performed.")
+            self.log("Selected: "+Path(path).name)
+            messagebox.showinfo("Inspection only","No restore or downgrade will be performed. Apple signing has not been checked.")
 
     def choose_folder(self):
-        path = filedialog.askdirectory()
-        if path:
-            self.path_var.set(path)
-            self.persist()
+        folder=filedialog.askdirectory()
+        if folder:self.path_var.set(folder)
 
     def persist(self):
-        self.settings = {"backup_enabled": self.backup_var.get(), "backup_path": self.path_var.get()}
-        save_settings(self.settings)
-        self.log("Backup preferences saved. This version does not yet execute backups.")
+        self.settings={"backup_enabled":self.backup_var.get(),"backup_path":self.path_var.get()}
+        CONFIG.parent.mkdir(parents=True,exist_ok=True)
+        CONFIG.write_text(json.dumps(self.settings,indent=2),encoding="utf-8")
+        messagebox.showinfo("Settings saved","Backup preferences saved. Backup execution is not implemented.")
 
-if __name__ == "__main__":
+if __name__=="__main__":
     Studio().mainloop()
