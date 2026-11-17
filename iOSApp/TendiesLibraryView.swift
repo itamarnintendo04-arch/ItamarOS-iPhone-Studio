@@ -1,6 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
-import SafariServices
+import WebKit
 
 struct TendiesLibraryView: View {
     @State private var files: [URL] = []
@@ -76,7 +76,7 @@ struct TendiesLibraryView: View {
             }
         }
         .sheet(isPresented: $browsing) {
-            SafariView(url: gallery).ignoresSafeArea()
+            WallpaperBrowser(url: gallery) { fileURL in\n                do { try store(fileURL); refresh(); message = "Wallpaper imported." }\n                catch { message = error.localizedDescription }\n            }.ignoresSafeArea()
         }
         .alert("Tendies Library", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK") { message = nil }
@@ -138,10 +138,67 @@ struct TendiesLibraryView: View {
     }
 }
 
-private struct SafariView: UIViewControllerRepresentable {
+
+private struct WallpaperBrowser: UIViewRepresentable {
     let url: URL
-    func makeUIViewController(context: Context) -> SFSafariViewController {
-        SFSafariViewController(url: url)
+    let onImport: (URL) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onImport: onImport) }
+
+    func makeUIView(context: Context) -> WKWebView {
+        let view = WKWebView()
+        view.navigationDelegate = context.coordinator
+        view.load(URLRequest(url: url))
+        return view
     }
-    func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
+
+    func updateUIView(_ view: WKWebView, context: Context) {}
+
+    final class Coordinator: NSObject, WKNavigationDelegate, WKDownloadDelegate {
+        let onImport: (URL) -> Void
+        init(onImport: @escaping (URL) -> Void) { self.onImport = onImport }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if navigationAction.shouldPerformDownload ||
+               navigationAction.request.url?.pathExtension.lowercased() == "tendies" {
+                decisionHandler(.download)
+            } else {
+                decisionHandler(.allow)
+            }
+        }
+
+        func webView(_ webView: WKWebView, navigationAction: WKNavigationAction,
+                     didBecome download: WKDownload) { download.delegate = self }
+
+        func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse,
+                     didBecome download: WKDownload) { download.delegate = self }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
+                     decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+            let mime = navigationResponse.response.mimeType?.lowercased() ?? ""
+            let ext = navigationResponse.response.url?.pathExtension.lowercased()
+            if ext == "tendies" || mime == "application/octet-stream" {
+                decisionHandler(.download)
+            } else {
+                decisionHandler(.allow)
+            }
+        }
+
+        func download(_ download: WKDownload, decideDestinationUsing response: URLResponse,
+                      suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
+            guard suggestedFilename.lowercased().hasSuffix(".tendies") else {
+                completionHandler(nil)
+                return
+            }
+            let target = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString + "-" + suggestedFilename)
+            completionHandler(target)
+        }
+
+        func download(_ download: WKDownload, didFinishDownloadingTo location: URL) {
+            guard location.pathExtension.lowercased() == "tendies" else { return }
+            DispatchQueue.main.async { self.onImport(location) }
+        }
+    }
 }
