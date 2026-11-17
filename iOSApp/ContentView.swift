@@ -12,7 +12,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form {\n                Section("Wallpapers") {\n                    NavigationLink("Tendies Wallpapers") { TendiesLibraryView() }\n                }
                 Section("iCloud Backup") {
                     Label("Back up your iPhone before making changes.", systemImage: "icloud")
                     Text("Settings → Your Name → iCloud → iCloud Backup → Back Up Now")
