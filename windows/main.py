@@ -93,7 +93,7 @@ class Studio(ctk.CTk):
         self.label(card,"Quick Actions",20,WHITE,True).pack(anchor="w",padx=22,pady=(18,10))
         row=ctk.CTkFrame(card,fg_color="transparent")
         row.pack(fill="x",padx=20,pady=(0,20))
-        for title,command in [("USB Drivers",self.service),("Inspect IPSW",self.ipsw),("Backup Settings",lambda:self.show("Backup Settings"))]:
+        for title,command in [("USB Drivers",self.service),("Inspect IPSW",self.ipsw),("Install Signed IPA",self.install_ipa),("Backup Settings",lambda:self.show("Backup Settings"))]:
             ctk.CTkButton(row,text=title,command=command,fg_color=PANEL2,hover_color="#2C4164",corner_radius=12,height=54).pack(side="left",expand=True,fill="x",padx=4)
         self.log_panel()
         self.log("Ready. Device tools require compatible Apple drivers and optional libimobiledevice.")
@@ -112,9 +112,9 @@ class Studio(ctk.CTk):
     def device_tools(self):
         self.heading("Device Tools","Check drivers and inspect firmware safely.")
         card=self.card(self.main)
-        for text,cmd in [("Detect connected iPhone",self.detect),("Check Apple Mobile Device Service",self.service),("Choose IPSW file (inspection only)",self.ipsw)]:
+        for text,cmd in [("Detect connected iPhone",self.detect),("Check Apple Mobile Device Service",self.service),("Choose IPSW file (inspection only)",self.ipsw),("Install signed IPA (USB)",self.install_ipa)]:
             self.action(card,text,cmd).pack(fill="x",padx=20,pady=9)
-        self.label(card,"Firmware restore, jailbreak and IPA installation are not implemented.",12,MUTED).pack(padx=20,pady=(9,20))
+        self.label(card,"Firmware restore and jailbreak are not implemented. IPA installation requires ideviceinstaller and a valid signature.",12,MUTED).pack(padx=20,pady=(9,20))
         self.log_panel()
 
     def backup_settings(self):
@@ -154,6 +154,28 @@ class Studio(ctk.CTk):
             out=run_tool("sc","query","Apple Mobile Device Service")
             result=(out.stdout.strip() if hasattr(out,"stdout") else str(out)) or "Apple Mobile Device Service not found."
             self.after(0,lambda:self.log(result[:1400]))
+        threading.Thread(target=work,daemon=True).start()
+
+    def install_ipa(self):
+        path=filedialog.askopenfilename(filetypes=[("iOS App Package","*.ipa")])
+        if not path:
+            return
+        exe=shutil.which("ideviceinstaller")
+        if not exe:
+            messagebox.showerror("Missing installer","Install a compatible ideviceinstaller CLI and Apple Mobile Device drivers first.")
+            return
+        if not messagebox.askyesno("Install signed IPA","Install the selected IPA on your connected, trusted iPhone? The IPA must be signed for this device."):
+            return
+        self.log("Installing signed IPA: "+Path(path).name)
+        def work():
+            try:
+                result=subprocess.run([exe,"-i",path],capture_output=True,text=True,timeout=180,check=False)
+                output=(result.stdout+"\\n"+result.stderr).strip()
+                status="Install completed." if result.returncode==0 else "Install failed (exit code "+str(result.returncode)+")."
+            except (OSError,subprocess.TimeoutExpired) as exc:
+                status="Install failed."
+                output=str(exc)
+            self.after(0,lambda:self.log(status+"\\n"+output[-1600:]))
         threading.Thread(target=work,daemon=True).start()
 
     def ipsw(self):
