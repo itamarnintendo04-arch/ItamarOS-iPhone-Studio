@@ -45,7 +45,7 @@ class Studio(ctk.CTk):
         ctk.CTkLabel(self.sidebar,text="◈  ItamarOS",font=ctk.CTkFont(size=23,weight="bold"),text_color=WHITE).pack(anchor="w",padx=23,pady=(34,5))
         ctk.CTkLabel(self.sidebar,text="iPHONE STUDIO",font=ctk.CTkFont(size=11,weight="bold"),text_color=BLUE).pack(anchor="w",padx=25,pady=(0,35))
         self.nav={}
-        for title in ["Dashboard","Device Tools","Backup Settings","About"]:
+        for title in ["Dashboard","Device Tools","Jailbreak & Wallpapers","Backup Settings","About"]:
             btn=ctk.CTkButton(self.sidebar,text="   "+title,anchor="w",height=45,corner_radius=12,fg_color="transparent",hover_color=PANEL2,text_color=MUTED,command=lambda t=title:self.show(t))
             btn.pack(fill="x",padx=13,pady=4)
             self.nav[title]=btn
@@ -76,6 +76,7 @@ class Studio(ctk.CTk):
             button.configure(fg_color=PANEL2 if name==page else "transparent",text_color=WHITE if name==page else MUTED)
         if page=="Dashboard":self.dashboard()
         elif page=="Device Tools":self.device_tools()
+        elif page=="Jailbreak & Wallpapers":self.jailbreak_wallpapers()
         elif page=="Backup Settings":self.backup_settings()
         else:self.about()
 
@@ -117,6 +118,26 @@ class Studio(ctk.CTk):
             self.action(card,text,cmd).pack(fill="x",padx=20,pady=9)
         self.label(card,"Firmware restore and jailbreak are not implemented. IPA installation requires ideviceinstaller and a valid signature.",12,MUTED).pack(padx=20,pady=(9,20))
         self.log_panel()
+
+    def jailbreak_wallpapers(self):
+        import webbrowser
+        self.heading("Jailbreak & Wallpapers", "Compatibility information and official tools.")
+        card = self.card(self.main)
+        self.label(card, "Jailbreak compatibility", 20, WHITE, True).pack(anchor="w", padx=22, pady=(20, 8))
+        self.label(card, "palera1n: checkm8 devices (A8–A11), including iPhone 6s through iPhone X.\n"
+                   "iPhone 13 is not supported by palera1n. Exact firmware compatibility must be verified.",
+                   13, MUTED).pack(anchor="w", padx=22, pady=(0, 12))
+        self.action(card, "Official palera1n project",
+                    lambda: webbrowser.open("https://github.com/palera1n/palera1n")).pack(anchor="w", padx=22, pady=(0, 20))
+        card2 = self.card(self.main)
+        self.label(card2, "TENDIES wallpapers", 20, WHITE, True).pack(anchor="w", padx=22, pady=(20, 8))
+        self.label(card2, "TendiesWallpaper and GoldenNugget offer wallpaper customization on some\n"
+                   "iOS versions without a full jailbreak. Compatibility varies by version.",
+                   13, MUTED).pack(anchor="w", padx=22, pady=(0, 12))
+        self.action(card2, "TENDIES application guide",
+                    lambda: webbrowser.open("https://tendieswallpaper.com/application")).pack(anchor="w", padx=22, pady=(0, 20))
+        self.label(self.main, "No jailbreak or wallpaper changes are executed by this page. Back up your device before system modifications.",
+                   12, MUTED).pack(anchor="w", padx=20, pady=12)
 
     def backup_settings(self):
         self.heading("Backup Settings","Choose where future local backups should be stored.")
